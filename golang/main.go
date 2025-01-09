@@ -10,6 +10,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+
+	//引入跨域请求
+	"github.com/gin-contrib/cors"
 )
 
 func initDB() *gorm.DB {
@@ -25,11 +28,13 @@ func initDB() *gorm.DB {
 
 func setupRouter(orderHandler *handlers.OrderHandler) *gin.Engine {
 	r := gin.Default()
+	//允许所有请求跨域
+	r.Use(cors.Default())
 
 	// API路由组
 	api := r.Group("/api")
 	{
-		api.POST("/orders", orderHandler.CreateOrUpdate)
+		api.POST("/orders", orderHandler.BatchCreateOrUpdate)
 		api.GET("/orders/:sn", orderHandler.GetOrder)
 	}
 
@@ -47,5 +52,5 @@ func main() {
 	r := setupRouter(orderHandler)
 
 	// 启动服务器
-	r.Run(":8080")
+	r.Run(":8122")
 }

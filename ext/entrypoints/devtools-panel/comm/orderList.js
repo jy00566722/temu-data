@@ -26,6 +26,17 @@ const getOrderList = (body)=>{
         orderList.push(data)
     }
     console.log(orderList)
+    //把orderList传给后端 url是http://127.0.0.1:8122/api/orders
+    fetch('http://127.0.0.1:8122/api/orders', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(orderList)
+    })
+    .then(response => response.json())
+    .then(data => console.log(data))
+    .catch(error => console.error(error))
 }else{
     console.log('无数据')
 }

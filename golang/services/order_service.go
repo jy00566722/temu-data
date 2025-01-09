@@ -15,19 +15,49 @@ func NewOrderService(db *gorm.DB) *OrderService {
 	return &OrderService{db: db}
 }
 
-func (s *OrderService) CreateOrUpdateOrder(order *models.Order) error {
-	var existingOrder models.Order
-	result := s.db.Where("sub_purchase_order_sn = ?", order.SubPurchaseOrderSn).First(&existingOrder)
+func (s *OrderService) BatchCreateOrUpdateOrders(orders []*models.Order) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		for _, order := range orders {
+			var existingOrder models.Order
+			result := tx.Where("sub_purchase_order_sn = ?", order.SubPurchaseOrderSn).First(&existingOrder)
 
-	if result.Error == gorm.ErrRecordNotFound {
-		return s.db.Create(order).Error
-	}
+			if err := tx.Where("sub_purchase_order_sn = ?", order.SubPurchaseOrderSn).Delete(&models.PackageDetail{}).Error; err != nil {
+				return err
+			}
 
-	return s.db.Model(&existingOrder).Updates(order).Error
+			for _, detail := range order.PackageDetails {
+				detail.SubPurchaseOrderSn = order.SubPurchaseOrderSn
+				if err := tx.Create(&detail).Error; err != nil {
+					return err
+				}
+			}
+
+			if result.Error == gorm.ErrRecordNotFound {
+				if err := tx.Create(order).Error; err != nil {
+					return err
+				}
+			} else {
+				if err := tx.Model(&existingOrder).Updates(order).Error; err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
 }
 
 func (s *OrderService) GetOrderByPurchaseOrderSn(sn string) (*models.Order, error) {
 	var order models.Order
-	result := s.db.Where("sub_purchase_order_sn = ?", sn).First(&order)
-	return &order, result.Error
+	var details []models.PackageDetail
+
+	if err := s.db.Where("sub_purchase_order_sn = ?", sn).First(&order).Error; err != nil {
+		return nil, err
+	}
+
+	if err := s.db.Where("sub_purchase_order_sn = ?", sn).Find(&details).Error; err != nil {
+		return nil, err
+	}
+
+	order.PackageDetails = details
+	return &order, nil
 }
